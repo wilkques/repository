@@ -10,9 +10,9 @@
     ],
     "require": {
         "php": "^7.4|^8.0",
-        "illuminate/database": "~5.4.0|~5.5.0|~5.6.0|~5.7.0|~5.8.0|^6.0.0|^7.0.0",
-        "illuminate/support": "~5.4.0|~5.5.0|~5.6.0|~5.7.0|~5.8.0|^6.0.0|^7.0.0",
-        "laravel/helpers": "^1.0.0"
+        "illuminate/database": "*",
+        "illuminate/support": "*0",
+        "laravel/helpers": "*"
     },
     "autoload": {
         "psr-4": {
