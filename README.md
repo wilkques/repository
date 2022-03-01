@@ -26,6 +26,7 @@ class UserRepository extends Repository
 // other class
 
 use App\Repositories\UserRepository;
+use App\User;
 
 class UserController extends Controller
 {
@@ -38,11 +39,15 @@ class UserController extends Controller
 
     public function index(Request $request)
     {
-        $this->userRepository->where("name", $request->name)->first();
+        $user = User::where("name", $request->name)->get()->toArray();
 
-        // or
+        // same
 
-        $this->userRepository->whereName($request->name)->first();
+        $user = $this->userRepository->where("name", $request->name)->get()->toArray();
+
+        // same
+
+        $user = $this->userRepository->whereName($request->name)->get()->toArray();
     }
 }
 ```
@@ -79,3 +84,4 @@ class UserController extends Controller
 
 ## Reference
 1. [Laravel](https://laravel.com/docs)
+1. [Laravel API DOCS](https://laravel.com/api/master/index.html)
