@@ -5,6 +5,9 @@
 example
 
 ```php
+namespace App\Repositories\UserRepository;
+
+use App\User;
 use Wilkques\Repository;
 
 class UserRepository extends Repository
@@ -13,8 +16,35 @@ class UserRepository extends Repository
     {
         parent::__construct($user);
     }
+
+    public function whereName(string $name)
+    {
+        return $this->where("name", $name);
+    }
 }
 
+// other class
+
+use App\Repositories\UserRepository;
+
+class UserController extends Controller
+{
+    protected $userRepository;
+
+    public function __construct(UserRepository $userRepository)
+    {
+        $this->userRepository = $userRepository;
+    }
+
+    public function index(Request $request)
+    {
+        $userRepository->where("name", $request->name)->first();
+
+        // or
+
+        $userRepository->whereName($request->name)->first();
+    }
+}
 ```
 
 ## Methods

@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Repositories;
+namespace Wilkques\Repositories;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Query\Builder;
