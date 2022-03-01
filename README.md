@@ -38,11 +38,11 @@ class UserController extends Controller
 
     public function index(Request $request)
     {
-        $userRepository->where("name", $request->name)->first();
+        $this->userRepository->where("name", $request->name)->first();
 
         // or
 
-        $userRepository->whereName($request->name)->first();
+        $this->userRepository->whereName($request->name)->first();
     }
 }
 ```
