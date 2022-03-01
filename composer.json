@@ -11,7 +11,7 @@
     "require": {
         "php": "^7.4|^8.0",
         "illuminate/database": "*",
-        "illuminate/support": "*0",
+        "illuminate/support": "*",
         "laravel/helpers": "*"
     },
     "autoload": {
