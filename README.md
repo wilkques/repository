@@ -8,7 +8,7 @@ example
 namespace App\Repositories\UserRepository;
 
 use App\User;
-use Wilkques\Repository;
+use Wilkques\Repositories\Repository;
 
 class UserRepository extends Repository
 {
