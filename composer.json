@@ -16,7 +16,7 @@
     },
     "autoload": {
         "psr-4": {
-            "Wilkques\\Repositories\\": "src/"
+            "Wilkques\\Repositories\\": "laravel-repository/src/"
         }
     },
     "suggest": {
