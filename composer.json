@@ -1,5 +1,5 @@
 {
-    "name": "wilkques/laravel-repository",
+    "name": "wilkques/repositories",
     "description": "Laravel Repository",
     "license": "MIT",
     "authors": [
@@ -16,7 +16,7 @@
     },
     "autoload": {
         "psr-4": {
-            "Wilkques\\Repositories\\": "laravel-repository/src/"
+            "Wilkques\\Repositories\\": "src/"
         }
     },
     "suggest": {
