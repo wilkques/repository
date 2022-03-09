@@ -1,5 +1,8 @@
 # Laravel Repository
 
+[![Latest Stable Version](https://poser.pugx.org/wilkques/repositories/v/stable)](https://packagist.org/packages/wilkques/repositories)
+[![License](https://poser.pugx.org/wilkques/repositories/license)](https://packagist.org/packages/wilkques/repositories)
+
 ## How to use
 
 example
