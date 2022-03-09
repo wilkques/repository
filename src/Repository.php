@@ -94,7 +94,7 @@ abstract class Repository implements \JsonSerializable, \ArrayAccess
      */
     private function methodCheck(string $method)
     {
-        return method_exists(app(get_called_class()), $method) ||
+        return method_exists($this->getContainer()->make(get_called_class()), $method) ||
             method_exists($this->getEntity(), $method);
     }
 
