@@ -256,7 +256,7 @@ abstract class Repository implements \JsonSerializable, \ArrayAccess
      */
     public function throw($error = 'Data not exists')
     {
-        if ($this->getEntity() instanceof Collection && ($this->getEntity()->isNotEmpty() || $this->isNotNull()))
+        if (($this->getEntity() instanceof Collection && $this->getEntity()->isNotEmpty()) || $this->isNotNull())
             return $this;
 
         if (is_callable($error)) {
