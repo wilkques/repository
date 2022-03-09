@@ -256,27 +256,23 @@ abstract class Repository implements \JsonSerializable, \ArrayAccess
      */
     public function throw($error = 'Data not exists')
     {
-        if (
-            $this->getEntity() instanceof Collection && $this->getEntity()->isEmpty() ||
-            $this->isNull()
-        ) {
-            if (is_callable($error)) {
-                if (!$error instanceof \Exception)
-                    throw new \UnexpectedValueException("CallBack must be return exception object");
+        if ($this->getEntity() instanceof Collection && ($this->getEntity()->isNotEmpty() || $this->isNotNull()))
+            return $this;
 
-                throw $error($this);
-            }
+        if (is_callable($error)) {
+            if (!$error instanceof \Exception)
+                throw new \UnexpectedValueException("CallBack must be return exception object");
 
-            if (is_string($error))
-                throw new \Wilkques\Repositories\Exceptions\RepositoryException($error);
-
-            if ($error instanceof \Exception)
-                throw $error;
-
-            throw new \UnexpectedValueException("Throw method first Arguments must be string or callable or exception");
+            throw $error($this);
         }
 
-        return $this;
+        if (is_string($error))
+            throw new \Wilkques\Repositories\Exceptions\RepositoryException($error);
+
+        if ($error instanceof \Exception)
+            throw $error;
+
+        throw new \UnexpectedValueException("Throw method first Arguments must be string or callable or exception");
     }
 
     /**
@@ -541,33 +537,5 @@ abstract class Repository implements \JsonSerializable, \ArrayAccess
     public static function __callStatic(string $method, array $arguments)
     {
         return (new static)->$method(...$arguments);
-    }
-
-    /**
-     * @return array
-     */
-    public function __serialize(): array
-    {
-        return get_object_vars($this);
-    }
-
-    /**
-     * Prepare the object for serialization.
-     *
-     * @return array
-     */
-    public function __sleep(): array
-    {
-        return array_keys(get_object_vars($this));
-    }
-
-    /**
-     * When a model is being unserialized, check if it needs to be booted.
-     *
-     * @return void
-     */
-    public function __wakeup()
-    {
-        $this->getEntity()->__wakeup();
     }
 }
