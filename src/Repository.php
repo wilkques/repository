@@ -2,6 +2,7 @@
 
 namespace Wilkques\Repositories;
 
+use Illuminate\Container\Container;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
@@ -19,6 +20,8 @@ abstract class Repository implements \JsonSerializable, \ArrayAccess
     protected $currentPage = 1;
     /** @var string */
     protected $pageName = 'page';
+    /** @var Container */
+    protected $container;
 
     /**
      * Force Output Methods
@@ -37,13 +40,31 @@ abstract class Repository implements \JsonSerializable, \ArrayAccess
 
     /**
      * @param Builder|Model|EloquentBuilder|Collection|LengthAwarePaginator $entity
-     * @param array|null $vars
+     * @param Container|null $container
      */
-    public function __construct($entity = null, array $vars = null)
+    public function __construct($entity = null, Container $container = null)
     {
-        $entity && $this->setEntity($entity);
+        $this->setContainer($container)->setEntity($entity);
+    }
 
-        $vars && $this->propertyResolve($vars);
+    /**
+     * @param Container|null $container
+     * 
+     * @return static
+     */
+    public function setContainer(Container $container = null)
+    {
+        $this->container = $container ?: new Container;
+
+        return $this;
+    }
+
+    /**
+     * @return Container
+     */
+    public function getContainer()
+    {
+        return $this->container;
     }
 
     /**
@@ -247,7 +268,7 @@ abstract class Repository implements \JsonSerializable, \ArrayAccess
             }
 
             if (is_string($error))
-                throw new \Exception($error);
+                throw new \Wilkques\Repositories\Exceptions\RepositoryException($error);
 
             if ($error instanceof \Exception)
                 throw $error;
@@ -469,19 +490,16 @@ abstract class Repository implements \JsonSerializable, \ArrayAccess
      */
     public function __call(string $method, array $arguments)
     {
-        $arguments = array_map(
-            fn ($argument) => $this->callArguments($argument),
-            $arguments
-        );
+        $arguments = array_map(fn ($argument) => $this->callArguments($argument), $arguments);
 
         if (in_array($method, $this->getForceMethods()))
             return $this->getEntity()->{$method}(...$arguments);
 
-        return app(get_called_class())->propertyResolve(
-            array_diff_key($this->__serialize(), array_flip(['entity']))
-        )->setEntity(
-            $this->entityHandle($method, $arguments)
-        );
+        $this->setEntity($this->entityHandle($method, $arguments));
+
+        $this->getContainer()->rebinding(get_called_class(), fn () => $this);
+
+        return $this;
     }
 
     /**
@@ -502,20 +520,6 @@ abstract class Repository implements \JsonSerializable, \ArrayAccess
         }
 
         return $this->getEntity()->{$method}(...$arguments);
-    }
-
-    /**
-     * @param array $vars
-     * 
-     * @return static
-     */
-    protected function propertyResolve(array $vars)
-    {
-        foreach (array_diff_key($vars, array_flip(['entity'])) as $key => $value) {
-            $value && $this->__set($key, $value);
-        }
-
-        return $this;
     }
 
     /**
