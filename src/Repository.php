@@ -506,10 +506,7 @@ abstract class Repository implements \JsonSerializable, \ArrayAccess
      */
     protected function entityHandle(string $method, array $arguments)
     {
-        if (
-            $this->getEntity() instanceof \Illuminate\Pagination\LengthAwarePaginator
-            && !method_exists(\Illuminate\Pagination\LengthAwarePaginator::class, $method)
-        ) {
+        if ($this->getEntity() instanceof \Illuminate\Pagination\LengthAwarePaginator && !method_exists(\Illuminate\Pagination\LengthAwarePaginator::class, $method)) {
             $this->getEntity()->{$method}(...$arguments);
 
             return $this->getEntity();
