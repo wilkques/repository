@@ -526,6 +526,14 @@ abstract class Repository implements \JsonSerializable, \ArrayAccess
     }
 
     /**
+     * @return Container
+     */
+    private static function container()
+    {
+        return Container::getInstance();
+    }
+
+    /**
      * @param string $method
      * @param array $arguments
      * 
@@ -533,6 +541,6 @@ abstract class Repository implements \JsonSerializable, \ArrayAccess
      */
     public static function __callStatic(string $method, array $arguments)
     {
-        return (new static)->$method(...$arguments);
+        return static::container()->make(get_called_class())->$method(...$arguments);
     }
 }
