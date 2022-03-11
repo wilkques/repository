@@ -84,6 +84,7 @@ class UserController extends Controller
 |   `isNotBool`         |             same `!is_bool`              |
 |   `isObject`          |             same `is_object`             |
 |   `isNotObject`       |             same `!is_object`            |
+|   `rebind`            |           rebind Model                   |
 
 ## Reference
 1. [Laravel](https://laravel.com/docs)

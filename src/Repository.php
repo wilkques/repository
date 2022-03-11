@@ -121,6 +121,20 @@ abstract class Repository implements \JsonSerializable, \ArrayAccess
     }
 
     /**
+     * Model Rebind
+     * 
+     * @return static
+     */
+    public function rebind()
+    {
+        $class = new \ReflectionClass($this);
+
+        $model = $class->getConstructor()->getParameters()[0]->getType();
+
+        return $this->setEntity($this->getContainer()->make((string) $model));
+    }
+
+    /**
      * @return array
      */
     public function getForceMethods()
