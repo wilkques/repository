@@ -505,7 +505,9 @@ abstract class Repository implements \JsonSerializable, \ArrayAccess
         if (in_array($method, $this->getForceMethods()))
             return $this->getEntity()->{$method}(...$arguments);
 
-        return $this->getContainer()->make(get_called_class())->setEntity($this->entityHandle($method, $arguments));
+        return $this->getContainer()->make(get_called_class())->propertyResolve(
+            array_diff_key($this->__serialize(), array_flip(['entity']))
+        )->setEntity($this->entityHandle($method, $arguments));
     }
 
     /**
@@ -547,6 +549,14 @@ abstract class Repository implements \JsonSerializable, \ArrayAccess
     private function callArguments($argument)
     {
         return $argument instanceof $this ? $argument->getEntity() : $argument;
+    }
+
+    /**
+     * @return array
+     */
+    public function __serialize(): array
+    {
+        return get_object_vars($this);
     }
 
     /**
