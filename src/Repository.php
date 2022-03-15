@@ -505,9 +505,19 @@ abstract class Repository implements \JsonSerializable, \ArrayAccess
         if (in_array($method, $this->getForceMethods()))
             return $this->getEntity()->{$method}(...$arguments);
 
-        $this->setEntity($this->entityHandle($method, $arguments));
+        return $this->getContainer()->make(get_called_class())->setEntity($this->entityHandle($method, $arguments));
+    }
 
-        $this->getContainer()->rebinding(get_called_class(), fn () => $this);
+    /**
+     * @param array $vars
+     * 
+     * @return static
+     */
+    protected function propertyResolve(array $vars)
+    {
+        foreach (array_diff_key($vars, array_flip(['entity'])) as $key => $value) {
+            $value && $this->__set($key, $value);
+        }
 
         return $this;
     }
