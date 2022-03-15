@@ -28,9 +28,9 @@ abstract class Repository implements \JsonSerializable, \ArrayAccess
      *  
      * @var array 
      * 
-     * @see [LaravelOffice-Collections](https://laravel.com/docs/8.x/collections) 
-     * @see [LaravelOffice-Eloquent-Collections](https://laravel.com/docs/8.x/eloquent-collections)
-     * @see [LaravelOffice-Queries-Builder](https://laravel.com/docs/8.x/queries#insert-statements)
+     * @see [LaravelOffice-Collections](https://laravel.com/docs/master/collections) 
+     * @see [LaravelOffice-Eloquent-Collections](https://laravel.com/docs/master/eloquent-collections)
+     * @see [LaravelOffice-Queries-Builder](https://laravel.com/docs/master/queries#insert-statements)
      */
     protected $methods = [
         'toArray', 'toJson', 'all', 'avg', 'contains', 'containsStrict', 'count', 'dd', 'dump', 'isObject', 'isNotObject',
