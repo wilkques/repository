@@ -70,7 +70,7 @@ class UserController extends Controller
 |   `setCurrentPage`    |               now page                   |
 |   `setPrePage`        |               prepage                    |
 |   `setPageName`       |               page name                  |
-|   `paginations`       |same `\Illuminate\Pagination\LengthAwarePaginator` paginate|
+|   `paginations`       |like `\Illuminate\Pagination\LengthAwarePaginator` paginate|
 |   `enableQueryLog`    |       same `\DB::enableQueryLog()`       |
 |   `setForceMethods`   |       same `\DB::getQueryLog()`          |
 |   `getQueries`        |           get all sql queries            |

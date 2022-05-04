@@ -121,20 +121,6 @@ abstract class Repository implements \JsonSerializable, \ArrayAccess
     }
 
     /**
-     * Model Rebind
-     * 
-     * @return static
-     */
-    public function rebind()
-    {
-        $class = new \ReflectionClass($this);
-
-        $model = $class->getConstructor()->getParameters()[0]->getType();
-
-        return $this->setEntity($this->getContainer()->make((string) $model));
-    }
-
-    /**
      * @return array
      */
     public function getForceMethods()
@@ -204,14 +190,14 @@ abstract class Repository implements \JsonSerializable, \ArrayAccess
     }
 
     /**
+     * @param array $column
      * @param int|string $currentPage
      * @param int|string $prePage
      * @param string $pageName
-     * @param array $column
      * 
      * @return static
      */
-    public function paginations($currentPage = null, $prePage = null, string $pageName = null, array $column = ['*'])
+    public function paginations(array $column = ['*'], $currentPage = null, $prePage = null, string $pageName = null)
     {
         return $this->paginate(
             $prePage ?: $this->getPrePage(),
