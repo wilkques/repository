@@ -5,6 +5,8 @@
 
 ## How to use
 
+`composer require wilkques/repositories`
+
 example
 
 ```php
