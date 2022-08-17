@@ -2,7 +2,6 @@
 
 namespace Wilkques\Repositories;
 
-use Illuminate\Container\Container;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
@@ -10,7 +9,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 
-abstract class Repository implements \JsonSerializable, \ArrayAccess
+abstract class Repository implements \JsonSerializable, \ArrayAccess, \Countable, \IteratorAggregate
 {
     /** @var Builder|Model|EloquentBuilder|Collection|LengthAwarePaginator */
     protected $entity;
@@ -20,8 +19,8 @@ abstract class Repository implements \JsonSerializable, \ArrayAccess
     protected $currentPage = 1;
     /** @var string */
     protected $pageName = 'page';
-    /** @var Container */
-    protected $container;
+    /** @var array */
+    protected static $resolvers = [];
 
     /**
      * Force Output Methods
@@ -40,31 +39,20 @@ abstract class Repository implements \JsonSerializable, \ArrayAccess
 
     /**
      * @param Builder|Model|EloquentBuilder|Collection|LengthAwarePaginator $entity
-     * @param Container|null $container
      */
-    public function __construct($entity = null, Container $container = null)
+    public function __construct($entity = null)
     {
-        $this->setContainer($container)->setEntity($entity);
+        $this->boot($entity);
     }
 
     /**
-     * @param Container|null $container
+     * @param Builder|Model|EloquentBuilder|Collection|LengthAwarePaginator $entity
      * 
      * @return static
      */
-    public function setContainer(Container $container = null)
+    public function boot($entity)
     {
-        $this->container = $container ?: new Container;
-
-        return $this;
-    }
-
-    /**
-     * @return Container
-     */
-    public function getContainer()
-    {
-        return $this->container;
+        return $this->setEntity($entity);
     }
 
     /**
@@ -88,17 +76,6 @@ abstract class Repository implements \JsonSerializable, \ArrayAccess
     }
 
     /**
-     * @param string $method
-     * 
-     * @return bool
-     */
-    private function methodCheck(string $method)
-    {
-        return method_exists($this->getContainer()->make(get_called_class()), $method) ||
-            method_exists($this->getEntity(), $method);
-    }
-
-    /**
      * @param string|array $method
      * 
      * @return static
@@ -110,7 +87,7 @@ abstract class Repository implements \JsonSerializable, \ArrayAccess
         array_map(function ($method) {
             if (is_array($method)) {
                 $this->setForceMethods(...$method);
-            } else if (is_string($method) && $this->methodCheck($method)) {
+            } else if (is_string($method)) {
                 $this->methods[] = $method;
             } else {
                 throw new \UnexpectedValueException("setForceMethods Arguments must be string or array");
@@ -361,7 +338,7 @@ abstract class Repository implements \JsonSerializable, \ArrayAccess
      */
     public function offsetGet($offset)
     {
-        return $this[$offset] ?? $this->getEntity()->offsetGet($offset);
+        return $this->getEntity()->offsetGet($offset);
     }
 
     /**
@@ -374,10 +351,7 @@ abstract class Repository implements \JsonSerializable, \ArrayAccess
      */
     public function offsetSet($offset, $value)
     {
-        if (property_exists($this, $offset))
-            $this->{$offset} = $value;
-        else
-            $this->getEntity()->offsetSet($offset, $value);
+        return $this->getEntity()->offsetSet($offset, $value);
     }
 
     /**
@@ -389,8 +363,7 @@ abstract class Repository implements \JsonSerializable, \ArrayAccess
      */
     public function offsetExists($offset)
     {
-        return (!property_exists($this, $offset) && !is_null($this->{$offset})) ||
-            $this->getEntity()->offsetExists($offset);
+        return $this->getEntity()->offsetExists($offset);
     }
 
     /**
@@ -401,8 +374,6 @@ abstract class Repository implements \JsonSerializable, \ArrayAccess
      */
     public function offsetUnset($offset)
     {
-        unset($this[$offset]);
-
         $this->getEntity()->offsetUnset($offset);
     }
 
@@ -445,17 +416,19 @@ abstract class Repository implements \JsonSerializable, \ArrayAccess
      */
     public function __get(string $key)
     {
-        if (!$key) return;
-
         if (property_exists($this, $key)) {
             return $this[$key];
         }
 
-        if (!$this->getEntity()) return null;
+        $get = static::getResolverCallback(function ($abstract, $method) use ($key) {
+            if (method_exists($abstract, "offsetExists") && $abstract->offsetExists($key)) {
+                return $abstract->__get($key);
+            }
 
-        if ($this->getEntity()->offsetExists($key)) {
-            return $this->getEntity()[$key];
-        }
+            return false;
+        });
+
+        return $get;
     }
 
     /**
@@ -466,16 +439,85 @@ abstract class Repository implements \JsonSerializable, \ArrayAccess
     {
         if (property_exists($this, $key)) {
             $this->{$key} = $value;
-        } else if ($this->getEntity() instanceof Collection) {
-            $this->getEntity()->map(function ($model) use ($key, $value) {
-                if ($model->offsetExists($key))
-                    $model->__set($key, $value);
-
-                return $model;
-            });
-        } else if ($this->getEntity()->offsetExists($key) || $this->getEntity() instanceof Model) {
-            $this->getEntity()->__set($key, $value);
         }
+
+        static::getResolverCallback(function ($abstract) use ($key, $value) {
+            if ($abstract instanceof Collection) {
+                $abstract->map(function ($model) use ($key, $value) {
+                    if ($model->offsetExists($key))
+                        $model->__set($key, $value);
+
+                    return $model;
+                });
+            }
+
+            if ($abstract->offsetExists($key)) {
+                $abstract->__set($key, $value);
+            }
+        });
+    }
+
+    /**
+     * @param \Closure $callback
+     * 
+     * @return string
+     */
+    public static function getResolverCallback(\Closure $callback = null)
+    {
+        foreach (static::$resolvers[static::class] as $method => $abstract) {
+            if ($mixed = $callback($abstract, $method)) {
+                break;
+            }
+        }
+
+        return $mixed;
+    }
+
+    /**
+     * Register a connection resolver.
+     *
+     * @param  string  $abstract
+     * @param  mixed  $class
+     * @return void
+     */
+    public static function resolverFor($method, $abstract)
+    {
+        static::$resolvers[static::class][$method] = $abstract;
+    }
+
+    /**
+     * Get the connection resolver for the given driver.
+     *
+     * @param  string  $abstract
+     * @return mixed
+     */
+    public static function getResolver($method)
+    {
+        return static::$resolvers[static::class][$method] ?? null;
+    }
+
+    /**
+     * @param string $method
+     * 
+     * @return string
+     */
+    protected function method($method)
+    {
+        $methods = array(
+            "set"       => [
+                'currentPage', 'prePage'
+            ],
+        );
+
+        foreach ($methods as $index => $item) {
+            if (in_array($method, $item)) {
+                $method = $index . ucfirst($method);
+
+                break;
+            }
+        }
+
+        return $method;
     }
 
     /**
@@ -486,55 +528,39 @@ abstract class Repository implements \JsonSerializable, \ArrayAccess
      */
     public function __call(string $method, array $arguments)
     {
-        $arguments = array_map(fn ($argument) => $this->callArguments($argument), $arguments);
+        $method = $this->method($method);
 
-        if (in_array($method, $this->getForceMethods()))
-            return $this->getEntity()->{$method}(...$arguments);
-
-        return $this->getContainer()->make(get_called_class())->propertyResolve(
-            array_diff_key($this->__serialize(), array_flip(['entity']))
-        )->setEntity($this->entityHandle($method, $arguments));
-    }
-
-    /**
-     * @param array $vars
-     * 
-     * @return static
-     */
-    protected function propertyResolve(array $vars)
-    {
-        foreach (array_diff_key($vars, array_flip(['entity'])) as $key => $value) {
-            $value && $this->__set($key, $value);
+        if (static::$resolvers) {
+            foreach (static::$resolvers[static::class] as $abstract) {
+                if (method_exists($abstract, $method)) {
+                    break;
+                }
+            }
+        } else {
+            $abstract = $this->getEntity();
         }
 
-        return $this;
-    }
-
-    /**
-     * @param string $method
-     * @param array $arguments
-     * 
-     * @return mixed
-     */
-    protected function entityHandle(string $method, array $arguments)
-    {
-        if ($this->getEntity() instanceof \Illuminate\Pagination\LengthAwarePaginator && !method_exists(\Illuminate\Pagination\LengthAwarePaginator::class, $method)) {
-            $this->getEntity()->{$method}(...$arguments);
-
-            return $this->getEntity();
+        if (method_exists(static::class, $method)) {
+            return $this->{$method}(...$arguments);
         }
 
-        return $this->getEntity()->{$method}(...$arguments);
-    }
+        $runAbstract = $abstract->{$method}(...$arguments);
 
-    /**
-     * @param mixed $argument
-     * 
-     * @return mixed
-     */
-    private function callArguments($argument)
-    {
-        return $argument instanceof $this ? $argument->getEntity() : $argument;
+        if (!is_object($runAbstract)) {
+            $runAbstract = end(static::$resolvers[static::class]);
+        }
+
+        static::resolverFor($method, $runAbstract);
+
+        if (array_key_exists("paginate", static::$resolvers[static::class])) {
+            $method = "paginate";
+        }
+
+        if (in_array($method, $this->getForceMethods())) {
+            return static::$resolvers[static::class][$method];
+        }
+
+        return $this->setEntity(static::$resolvers[static::class][$method]);
     }
 
     /**
@@ -546,11 +572,35 @@ abstract class Repository implements \JsonSerializable, \ArrayAccess
     }
 
     /**
-     * @return Container
+     * @param array $data
      */
-    private static function container()
+    public function __unserialize(array $data): void
     {
-        return Container::getInstance();
+        foreach ($data as $key => $val) {
+            $this->{$key} = $val;
+        }
+    }
+
+    /**
+     * @return int
+     */
+    public function count()
+    {
+        return $this->getEntity()->count() ?? count($this->getEntity()->toArray());
+    }
+
+    /**
+     * @return mixed
+     */
+    public function getIterator()
+    {
+        $entity = $this->getEntity();
+
+        if ($this->getEntity() instanceof Model) {
+            $entity = $entity->toArray();
+        }
+
+        yield from $entity;
     }
 
     /**
@@ -561,6 +611,6 @@ abstract class Repository implements \JsonSerializable, \ArrayAccess
      */
     public static function __callStatic(string $method, array $arguments)
     {
-        return static::container()->make(get_called_class())->$method(...$arguments);
+        return (new static)->$method(...$arguments);
     }
 }

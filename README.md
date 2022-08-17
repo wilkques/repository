@@ -74,7 +74,7 @@ class UserController extends Controller
 |   `setPageName`       |               page name                  |
 |   `paginations`       |like `\Illuminate\Pagination\LengthAwarePaginator` paginate|
 |   `enableQueryLog`    |       same `\DB::enableQueryLog()`       |
-|   `setForceMethods`   |       same `\DB::getQueryLog()`          |
+|   `getQueryLog`       |       same `\DB::getQueryLog()`          |
 |   `getQueries`        |           get all sql queries            |
 |   `getLastQuery`      |           get last sql queries           |
 |   `throw`             |            throws exception              |
