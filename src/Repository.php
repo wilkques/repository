@@ -30,6 +30,7 @@ abstract class Repository implements \JsonSerializable, \ArrayAccess, \Countable
      * @see [LaravelOffice-Collections](https://laravel.com/docs/master/collections) 
      * @see [LaravelOffice-Eloquent-Collections](https://laravel.com/docs/master/eloquent-collections)
      * @see [LaravelOffice-Queries-Builder](https://laravel.com/docs/master/queries#insert-statements)
+     * @see [LaravelOffice-pagination](https://laravel.com/docs/master/pagination)
      */
     protected $methods = [
         'toArray', 'toJson', 'all', 'avg', 'contains', 'containsStrict', 'count', 'dd', 'dump', 'isObject', 'isNotObject',
@@ -174,14 +175,62 @@ abstract class Repository implements \JsonSerializable, \ArrayAccess, \Countable
      * 
      * @return static
      */
-    public function paginations(array $column = ['*'], $currentPage = null, $prePage = null, string $pageName = null)
+    public function paginate(array $column = ['*'], $currentPage = null, $prePage = null, string $pageName = null)
     {
-        return $this->paginate(
+        $result = $this->getEntity()->paginate(
             $prePage ?: $this->getPrePage(),
             $column,
             $pageName ?: $this->getPageName(),
             $currentPage ?: $this->getCurrentPage()
         );
+
+        static::resolverFor("paginate", $result);
+
+        return $this->setEntity($result);
+    }
+
+    /**
+     * @param array $column
+     * @param int|string $currentPage
+     * @param int|string $prePage
+     * @param string $pageName
+     * 
+     * @return static
+     */
+    public function simplePaginate(array $column = ['*'], $currentPage = null, $prePage = null, string $pageName = null)
+    {
+        $result = $this->getEntity()->simplePaginate(
+            $prePage ?: $this->getPrePage(),
+            $column,
+            $pageName ?: $this->getPageName(),
+            $currentPage ?: $this->getCurrentPage()
+        );
+
+        static::resolverFor("simplePaginate", $result);
+
+        return $this->setEntity($result);
+    }
+
+    /**
+     * @param array $column
+     * @param int|string $currentPage
+     * @param int|string $prePage
+     * @param string $pageName
+     * 
+     * @return static
+     */
+    public function cursorPaginate(array $column = ['*'], $currentPage = null, $prePage = null, string $pageName = null)
+    {
+        $result = $this->getEntity()->cursorPaginate(
+            $prePage ?: $this->getPrePage(),
+            $column,
+            $pageName ?: $this->getPageName(),
+            $currentPage ?: $this->getCurrentPage()
+        );
+
+        static::resolverFor("cursorPaginate", $result);
+
+        return $this->setEntity($result);
     }
 
     /**
@@ -420,7 +469,7 @@ abstract class Repository implements \JsonSerializable, \ArrayAccess, \Countable
             return $this[$key];
         }
 
-        $get = static::getResolverCallback(function ($abstract, $method) use ($key) {
+        $get = static::getResolverCallback(function ($abstract) use ($key) {
             if (method_exists($abstract, "offsetExists") && $abstract->offsetExists($key)) {
                 return $abstract->__get($key);
             }
@@ -462,7 +511,7 @@ abstract class Repository implements \JsonSerializable, \ArrayAccess, \Countable
      * 
      * @return string
      */
-    public static function getResolverCallback(\Closure $callback = null)
+    protected static function getResolverCallback(\Closure $callback = null)
     {
         foreach (static::$resolvers[static::class] as $method => $abstract) {
             if ($mixed = $callback($abstract, $method)) {
@@ -476,11 +525,11 @@ abstract class Repository implements \JsonSerializable, \ArrayAccess, \Countable
     /**
      * Register a connection resolver.
      *
-     * @param  string  $abstract
-     * @param  mixed  $class
+     * @param  string  $method
+     * @param  mixed  $abstract
      * @return void
      */
-    public static function resolverFor($method, $abstract)
+    protected static function resolverFor($method, $abstract)
     {
         static::$resolvers[static::class][$method] = $abstract;
     }
@@ -488,12 +537,34 @@ abstract class Repository implements \JsonSerializable, \ArrayAccess, \Countable
     /**
      * Get the connection resolver for the given driver.
      *
-     * @param  string  $abstract
+     * @param  string  $method
      * @return mixed
      */
-    public static function getResolver($method)
+    protected static function getResolver(string $method)
     {
         return static::$resolvers[static::class][$method] ?? null;
+    }
+
+    /**
+     * @return mixed
+     */
+    protected static function getLastResolver()
+    {
+        return end(static::$resolvers[static::class]);
+    }
+
+    /**
+     * @param \Closure $callback
+     * 
+     * @return mixed|null
+     */
+    protected function hasPaginate(\Closure $callback)
+    {
+        if ($resolver = array_intersect_key(static::$resolvers[static::class], array_flip(['paginate', 'simplePaginate', 'cursorPaginate']))) {
+            return $callback($resolver);
+        }
+
+        return null;
     }
 
     /**
@@ -501,13 +572,13 @@ abstract class Repository implements \JsonSerializable, \ArrayAccess, \Countable
      * 
      * @return string
      */
-    protected function method($method)
+    protected function method(string $method)
     {
-        $methods = array(
-            "set"       => [
-                'currentPage', 'prePage'
+        $methods = [
+            "set" => [
+                'currentPage', 'prePage', 'pageName',
             ],
-        );
+        ];
 
         foreach ($methods as $index => $item) {
             if (in_array($method, $item)) {
@@ -522,6 +593,54 @@ abstract class Repository implements \JsonSerializable, \ArrayAccess, \Countable
 
     /**
      * @param string $method
+     * @param string|int|bool $result
+     * 
+     * @return string|int|bool
+     */
+    protected function notObjectHandle(string $method, $result)
+    {
+        static::resolverFor($method, static::getLastResolver());
+
+        return $result;
+    }
+
+    /**
+     * @return mixed
+     */
+    protected function getAbstract()
+    {
+        if (empty(static::$resolvers)) {
+            return $this->getEntity();
+        }
+
+        return $this->hasPaginate(fn ($resolver) => static::getResolver(key($resolver))) ?: static::getLastResolver();
+    }
+
+    /**
+     * @param string $method
+     * @param mixed $result
+     * 
+     * @return mixed|static
+     */
+    protected function forceCall($method, $result)
+    {
+        if (in_array($method, $this->getForceMethods())) {
+            return $result;
+        }
+
+        if (!is_object($result)) {
+            return $this->notObjectHandle($method, $result);
+        }
+
+        static::resolverFor($method, $result);
+
+        $method = $this->hasPaginate(fn ($resolver) => key($resolver)) ?: $method;
+
+        return $this->setEntity(static::$resolvers[static::class][$method]);
+    }
+
+    /**
+     * @param string $method
      * @param array $arguments
      * 
      * @return mixed
@@ -530,37 +649,13 @@ abstract class Repository implements \JsonSerializable, \ArrayAccess, \Countable
     {
         $method = $this->method($method);
 
-        if (static::$resolvers) {
-            foreach (static::$resolvers[static::class] as $abstract) {
-                if (method_exists($abstract, $method)) {
-                    break;
-                }
-            }
-        } else {
-            $abstract = $this->getEntity();
-        }
-
-        if (method_exists(static::class, $method)) {
+        if (method_exists($this, $method)) {
             return $this->{$method}(...$arguments);
         }
 
-        $runAbstract = $abstract->{$method}(...$arguments);
+        $result = $this->getAbstract()->{$method}(...$arguments);
 
-        if (!is_object($runAbstract)) {
-            $runAbstract = end(static::$resolvers[static::class]);
-        }
-
-        static::resolverFor($method, $runAbstract);
-
-        if (array_key_exists("paginate", static::$resolvers[static::class])) {
-            $method = "paginate";
-        }
-
-        if (in_array($method, $this->getForceMethods())) {
-            return static::$resolvers[static::class][$method];
-        }
-
-        return $this->setEntity(static::$resolvers[static::class][$method]);
+        return $this->forceCall($method, $result);
     }
 
     /**
