@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 
-abstract class Repository implements \JsonSerializable, \ArrayAccess
+abstract class Repository implements \JsonSerializable, \ArrayAccess, \Countable, \IteratorAggregate
 {
     /** @var Builder|Model|EloquentBuilder|Collection|LengthAwarePaginator */
     protected $entity;
@@ -480,13 +480,43 @@ abstract class Repository implements \JsonSerializable, \ArrayAccess
 
     /**
      * @param string $method
+     * 
+     * @return string
+     */
+    protected function method(string $method)
+    {
+        $methods = [
+            "set" => [
+                'currentPage', 'prePage', 'pageName',
+            ],
+        ];
+
+        foreach ($methods as $index => $item) {
+            if (in_array($method, $item)) {
+                $method = $index . ucfirst($method);
+
+                break;
+            }
+        }
+
+        return $method;
+    }
+
+    /**
+     * @param string $method
      * @param array $arguments
      * 
      * @return mixed
      */
     public function __call(string $method, array $arguments)
     {
+        $method = $this->method($method);
+
         $arguments = array_map(fn ($argument) => $this->callArguments($argument), $arguments);
+
+        if (method_exists($this, $method)) {
+            return $this->{$method}(...$arguments);
+        }
 
         if (in_array($method, $this->getForceMethods()))
             return $this->getEntity()->{$method}(...$arguments);
@@ -535,6 +565,28 @@ abstract class Repository implements \JsonSerializable, \ArrayAccess
     private function callArguments($argument)
     {
         return $argument instanceof $this ? $argument->getEntity() : $argument;
+    }
+
+    /**
+     * @return int
+     */
+    public function count()
+    {
+        return $this->getEntity()->count() ?? count($this->getEntity()->toArray());
+    }
+
+    /**
+     * @return mixed
+     */
+    public function getIterator()
+    {
+        $entity = $this->getEntity();
+
+        if ($this->getEntity() instanceof Model) {
+            $entity = $entity->toArray();
+        }
+
+        yield from $entity;
     }
 
     /**
