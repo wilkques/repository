@@ -13,7 +13,7 @@ abstract class Repository implements \JsonSerializable, \ArrayAccess, \Countable
 {
     /** @var Builder|Model|EloquentBuilder|Collection|LengthAwarePaginator */
     protected $entity;
-    /** @var Builder|Model|EloquentBuilder|Collection|LengthAwarePaginator */
+    /** @var \Illuminate\Database\Eloquent\Relations\Relation */
     protected $relations;
     /** @var int */
     protected $prePage = 10;
@@ -57,7 +57,7 @@ abstract class Repository implements \JsonSerializable, \ArrayAccess, \Countable
      */
     protected function boot($entity)
     {
-        static::resolverFor('base', $entity);
+        static::setBaseResolver($entity);
 
         return $this->setEntity($entity);
     }
@@ -83,7 +83,7 @@ abstract class Repository implements \JsonSerializable, \ArrayAccess, \Countable
     }
 
     /**
-     * @param Builder|Model|EloquentBuilder|Collection|LengthAwarePaginator $relations
+     * @param \Illuminate\Database\Eloquent\Relations\Relation $relations
      * 
      * @return static
      */
@@ -95,7 +95,7 @@ abstract class Repository implements \JsonSerializable, \ArrayAccess, \Countable
     }
 
     /**
-     * @return Builder|Model|EloquentBuilder|Collection|LengthAwarePaginator
+     * @return \Illuminate\Database\Eloquent\Relations\Relation
      */
     public function getRelations()
     {
@@ -622,6 +622,17 @@ abstract class Repository implements \JsonSerializable, \ArrayAccess, \Countable
     }
 
     /**
+     * Register a base model resolver.
+     *
+     * @param  Model  $entity
+     * @return void
+     */
+    protected static function setBaseResolver($entity)
+    {
+        static::resolverFor('base', $entity);
+    }
+
+    /**
      * Get the connection resolver for the given driver.
      *
      * @param  string  $method
@@ -630,6 +641,14 @@ abstract class Repository implements \JsonSerializable, \ArrayAccess, \Countable
     protected static function getResolver(string $method)
     {
         return static::$resolvers[static::class][$method] ?? null;
+    }
+
+    /**
+     * @return Model
+     */
+    protected static function getBaseResolver()
+    {
+        return static::getResolver('base');
     }
 
     /**
@@ -666,7 +685,7 @@ abstract class Repository implements \JsonSerializable, \ArrayAccess, \Countable
     /**
      * @return mixed
      */
-    protected static function getLasRelationsResolver()
+    protected static function getLastRelationsResolver()
     {
         return end(static::$relationResolvers[static::class]);
     }
@@ -707,19 +726,6 @@ abstract class Repository implements \JsonSerializable, \ArrayAccess, \Countable
         }
 
         return $method;
-    }
-
-    /**
-     * @param string $method
-     * @param string|int|bool $result
-     * 
-     * @return string|int|bool
-     */
-    protected function notAbstract(string $method, $result)
-    {
-        static::resolverFor($method, static::getLastResolver());
-
-        return $result;
     }
 
     /**
@@ -781,8 +787,8 @@ abstract class Repository implements \JsonSerializable, \ArrayAccess, \Countable
             return $this->{$method}(...$arguments);
         }
         
-        if (!empty(static::$relationResolvers) && $this->getEntity() instanceof Model && $this->getEntity() != static::getResolver('base')) {
-            $result = static::getLasRelationsResolver()->{$method}(...$arguments);
+        if (!empty(static::$relationResolvers) && $this->getEntity() instanceof Model && $this->getEntity() != static::getBaseResolver()) {
+            $result = static::getLastRelationsResolver()->{$method}(...$arguments);
 
             static::relationsResolverFor($method, $result);
 
@@ -815,8 +821,8 @@ abstract class Repository implements \JsonSerializable, \ArrayAccess, \Countable
      */
     public function __unserialize(array $data): void
     {
-        foreach ($data as $key => $val) {
-            $this->{$key} = $val;
+        foreach ($data as $key => $value) {
+            $this->__set($key, $value);
         }
     }
 
